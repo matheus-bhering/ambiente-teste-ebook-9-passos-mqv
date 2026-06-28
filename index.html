@@ -557,7 +557,7 @@ wpp.addEventListener('input',()=>{
 /* ---- validacao + submit ---- */
 const form=document.getElementById('leadForm');
 function setErr(id,on){document.getElementById(id).classList.toggle('err',on);}
-form.addEventListener('submit',function(e){
+form.addEventListener('submit',async function(e){
   e.preventDefault();
   const name=document.getElementById('i-name').value.trim();
   const email=document.getElementById('i-email').value.trim();
@@ -568,31 +568,76 @@ form.addEventListener('submit',function(e){
 
   const btn=document.getElementById('mSubmit'); btn.disabled=true; btn.textContent='Redirecionando…';
 
-  // 1) Meta Pixel Lead
-  if(window.fbq) fbq('track','Lead');
+ // 1) Meta Pixel Lead
+if(window.fbq) fbq('track','Lead');
 
-  // 2) Envia ao ActiveCampaign (form hospedado, sem expor API key)
-  sendToActiveCampaign(name,email,phone);
+// 2) Envia ao webhook do n8n
+await enviarLeadN8N(name,email,phone);
 
-  // 3) Redireciona ao checkout com UTMs anexadas
-  const url=new URL(CONFIG.checkoutUrl);
-  Object.entries(utms).forEach(([k,v])=>url.searchParams.set(k,v));
-  // pre-preenche se a Hub.la aceitar (inofensivo se nao aceitar):
-  url.searchParams.set('name',name); url.searchParams.set('email',email);
-  setTimeout(()=>{ location.href=url.toString(); }, 600);
-});
+// 3) Redireciona ao checkout
+const url=new URL(CONFIG.checkoutUrl);
 
-function sendToActiveCampaign(name,email,phone){
-  const ac=CONFIG.ac;
-  if(!ac.procUrl||!ac.u){ console.warn('[MQV] ActiveCampaign nao configurado — preencha CONFIG.ac'); return; }
-  const data=new FormData();
-  data.append('u',ac.u); data.append('f',ac.f); data.append('id',ac.f);
-  data.append('fullname',name); data.append('email',email);
-  if(ac.fieldWhatsapp) data.append(ac.fieldWhatsapp,phone);
-  const map={fieldUtmSource:'utm_source',fieldUtmMedium:'utm_medium',fieldUtmCampaign:'utm_campaign',fieldUtmContent:'utm_content',fieldUtmTerm:'utm_term'};
-  Object.entries(map).forEach(([cfg,utk])=>{ if(ac[cfg]&&utms[utk]) data.append(ac[cfg],utms[utk]); });
-  // POST "fire-and-forget" (nao bloqueia o redirect)
-  fetch(ac.procUrl,{method:'POST',body:data,mode:'no-cors',keepalive:true}).catch(()=>{});
+async function enviarLeadN8N(name,email,phone){
+
+    const params=new URLSearchParams(window.location.search);
+
+    const payload={
+
+        nome:name,
+
+        email:email,
+
+        whatsapp:phone,
+
+        utm_source:params.get("utm_source") || "",
+
+        utm_medium:params.get("utm_medium") || "",
+
+        utm_campaign:params.get("utm_campaign") || "",
+
+        utm_content:params.get("utm_content") || "",
+
+        utm_term:params.get("utm_term") || "",
+
+        fbclid:params.get("fbclid") || "",
+
+        gclid:params.get("gclid") || "",
+
+        ttclid:params.get("ttclid") || "",
+
+        pagina:window.location.href,
+
+        referer:document.referrer,
+
+        data:new Date().toISOString()
+
+    };
+
+    try{
+
+        await fetch(
+            "https://n8n.influenciax.com.br/webhook/site-ebook-9-passos-mqv",
+            {
+
+                method:"POST",
+
+                headers:{
+                    "Content-Type":"application/json"
+                },
+
+                body:JSON.stringify(payload),
+
+                keepalive:true
+
+            }
+        );
+
+    }catch(e){
+
+        console.error(e);
+
+    }
+
 }
 
 /* ---- FAQ ---- */
