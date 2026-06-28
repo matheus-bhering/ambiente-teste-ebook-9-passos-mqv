@@ -557,42 +557,91 @@ wpp.addEventListener('input',()=>{
 /* ---- validacao + submit ---- */
 const form=document.getElementById('leadForm');
 function setErr(id,on){document.getElementById(id).classList.toggle('err',on);}
+
 form.addEventListener('submit',function(e){
   e.preventDefault();
+
   const name=document.getElementById('i-name').value.trim();
   const email=document.getElementById('i-email').value.trim();
   const phone=document.getElementById('i-wpp').value.replace(/\D/g,'');
-  const okName=name.length>=2, okMail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email), okPhone=phone.length>=10;
-  setErr('f-name',!okName); setErr('f-email',!okMail); setErr('f-wpp',!okPhone);
+
+  const okName=name.length>=2;
+  const okMail=/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  const okPhone=phone.length>=10;
+
+  setErr('f-name',!okName);
+  setErr('f-email',!okMail);
+  setErr('f-wpp',!okPhone);
+
   if(!(okName&&okMail&&okPhone)) return;
 
-  const btn=document.getElementById('mSubmit'); btn.disabled=true; btn.textContent='Redirecionando…';
+  const btn=document.getElementById('mSubmit');
+  btn.disabled=true;
+  btn.textContent='Redirecionando…';
 
   // 1) Meta Pixel Lead
   if(window.fbq) fbq('track','Lead');
 
-  // 2) Envia ao ActiveCampaign (form hospedado, sem expor API key)
-  sendToActiveCampaign(name,email,phone);
+  // 2) Envia ao webhook do n8n sem quebrar o redirecionamento
+  enviarLeadN8N(name,email,phone);
 
   // 3) Redireciona ao checkout com UTMs anexadas
   const url=new URL(CONFIG.checkoutUrl);
   Object.entries(utms).forEach(([k,v])=>url.searchParams.set(k,v));
-  // pre-preenche se a Hub.la aceitar (inofensivo se nao aceitar):
-  url.searchParams.set('name',name); url.searchParams.set('email',email);
-  setTimeout(()=>{ location.href=url.toString(); }, 600);
+
+  // pre-preenche se a Hub.la aceitar
+  url.searchParams.set('name',name);
+  url.searchParams.set('email',email);
+
+  setTimeout(()=>{
+    location.href=url.toString();
+  },600);
 });
 
-function sendToActiveCampaign(name,email,phone){
-  const ac=CONFIG.ac;
-  if(!ac.procUrl||!ac.u){ console.warn('[MQV] ActiveCampaign nao configurado — preencha CONFIG.ac'); return; }
-  const data=new FormData();
-  data.append('u',ac.u); data.append('f',ac.f); data.append('id',ac.f);
-  data.append('fullname',name); data.append('email',email);
-  if(ac.fieldWhatsapp) data.append(ac.fieldWhatsapp,phone);
-  const map={fieldUtmSource:'utm_source',fieldUtmMedium:'utm_medium',fieldUtmCampaign:'utm_campaign',fieldUtmContent:'utm_content',fieldUtmTerm:'utm_term'};
-  Object.entries(map).forEach(([cfg,utk])=>{ if(ac[cfg]&&utms[utk]) data.append(ac[cfg],utms[utk]); });
-  // POST "fire-and-forget" (nao bloqueia o redirect)
-  fetch(ac.procUrl,{method:'POST',body:data,mode:'no-cors',keepalive:true}).catch(()=>{});
+function enviarLeadN8N(name,email,phone){
+  const params=new URLSearchParams(window.location.search);
+
+  const payload={
+    nome:name,
+    email:email,
+    whatsapp:phone,
+
+    utm_source:params.get('utm_source') || '',
+    utm_medium:params.get('utm_medium') || '',
+    utm_campaign:params.get('utm_campaign') || '',
+    utm_content:params.get('utm_content') || '',
+    utm_term:params.get('utm_term') || '',
+
+    fbclid:params.get('fbclid') || '',
+    gclid:params.get('gclid') || '',
+    ttclid:params.get('ttclid') || '',
+
+    pagina:window.location.href,
+    referer:document.referrer || '',
+    origem:'site_ebook_9_passos_mqv',
+    produto:'ebook_9_passos_mqv',
+    data:new Date().toISOString()
+  };
+
+  const endpoint='https://n8n.influenciax.com.br/webhook/site-ebook-9-passos-mqv';
+  const body=JSON.stringify(payload);
+
+  try{
+    if(navigator.sendBeacon){
+      const blob=new Blob([body],{type:'text/plain;charset=UTF-8'});
+      const enviado=navigator.sendBeacon(endpoint,blob);
+      if(enviado) return;
+    }
+
+    fetch(endpoint,{
+      method:'POST',
+      body:body,
+      mode:'no-cors',
+      keepalive:true
+    }).catch(()=>{});
+  }catch(e){
+    console.warn('[MQV] Erro ao enviar lead para o n8n',e);
+  }
 }
 
 /* ---- FAQ ---- */
