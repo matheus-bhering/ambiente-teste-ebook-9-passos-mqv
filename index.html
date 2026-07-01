@@ -163,7 +163,29 @@ section{position:relative}
 .offer-grid{display:grid;grid-template-columns:.9fr 1.1fr;gap:54px;align-items:center}
 .offer-mock{display:grid;place-items:center;position:relative}
 .offer-mock img{width:78%;filter:drop-shadow(0 40px 60px rgba(0,0,0,.5))}
-.offer-mock .ring{position:absolute;width:330px;height:330px;border:2px solid rgba(201,162,75,.3);border-radius:50%;z-index:0}
+.offer-mock{
+    display:grid;
+    place-items:center;
+    position:relative;
+    min-height:420px;
+}
+
+.offer-mock img{
+    width:115%;
+    max-width:340px;
+    position:relative;
+    z-index:2;
+    filter:drop-shadow(0 40px 60px rgba(0,0,0,.5));
+}
+
+.offer-mock .ring{
+    position:absolute;
+    width:380px;
+    height:380px;
+    border:2px solid rgba(201,162,75,.3);
+    border-radius:50%;
+    z-index:1;
+}
 .offer-card .eyebrow{color:var(--gold-2)}
 .stack{list-style:none;margin:24px 0 30px}
 .stack li{display:flex;gap:13px;align-items:flex-start;padding:9px 0;color:#d6dbeb;font-size:1.04rem;border-bottom:1px solid rgba(255,255,255,.08)}
@@ -259,7 +281,20 @@ footer{background:var(--ink2);color:#7e88a6;padding:46px 0;font-size:.82rem}
   .auth-banner .cap{right:8%}
   .auth-stats{padding-top:96px}
   .stats-row{grid-template-columns:1fr;gap:26px;margin-bottom:42px}
-  .offer-mock{order:-1}.offer-mock img{width:60%}
+  .offer-mock{
+    order:-1;
+    min-height:340px;
+}
+
+.offer-mock img{
+    width:85%;
+    max-width:260px;
+}
+
+.offer-mock .ring{
+    width:300px;
+    height:300px;
+}
   .vids{grid-template-columns:repeat(2,1fr);gap:12px}
   .final-photo{max-width:360px;margin:0 auto}
   .sticky{display:flex}
